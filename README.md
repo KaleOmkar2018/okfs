@@ -7,7 +7,7 @@ Kernel Version : 4.13.0.37	<br />
 -Added a kernel module.<br />
 -Added a Makefile<br />
 -Screenshot of output.<br />
-.
+
 2.Filesystem Basic structure<br />
 -Added a filesystem type structure.<br />
 -Modified init module to include filesystem registration.<br />
@@ -24,3 +24,10 @@ Kernel Version : 4.13.0.37	<br />
 -Screenshot removed<br />
 -Device has not been created yet.So, code testing will be done in next commit.<br />
 -Comments have been added. Comments will be removed after 2 commits.<br />
+
+4.Creating an device image and using the user application to write filesystem specific data to our device<br />
+-We will create a device image named myBlkDev.Use dd command in the directory in which you want to create a file filled with zeroes.<br />
+-Block size = 4096, No of blocks supported = 64.<br />
+-Command: dd bs=4096 count=64 if=/dev/zero of=myBlkDev <br />
+-The application takes one parameter i.e. the name of the file to be filled with data.Assume application output file name is a.out. <br />
+-./a.out myBlkDev <br />
