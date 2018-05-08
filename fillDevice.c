@@ -1,6 +1,7 @@
 /*######### HOW OUR DEVICE WILL LOOK LIKE #########
   Block 0 : Superblock structure(internal padding used)
-  Block 1 : Inode store where the actual inode objects are stored. Inode count is also maintained here.
+  Block 1 : Inode Store -> inode count + inodes in okfs_inode_structure.
+  Block 2 : Not Added but this will store okfs_dir_record.
 #################################################*/
 
 #include<unistd.h>

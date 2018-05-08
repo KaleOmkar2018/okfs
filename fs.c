@@ -5,12 +5,18 @@
 #include<linux/slab.h>
 
 #include "fs.h"
+
+/*##################### MACROS ################ */
+#define okfs_flag  FS_REQUIRES_DEV //This filesystem supports only block devices.
+
 /*##################### FUNCTION DECLARATIONS ####################### */
 /*### HELPER FUNCTIONS ###*/
 static int okfs_superfill_callback(struct super_block* sb, void* data, int silent);
 static okfs_inode_store* okfs_get_root_dir_inode(struct super_block* sb, unsigned long inode_no);
 
-/*### DRIVER OPERTAIONS ###*/
+/*##################### DRIVER OPERTAIONS ########################## */
+static struct dentry* okfs_lookup(struct inode* parent_inode, struct dentry* child_dentry, unsigned int flags);
+static int okfs_iterate(struct file *filp, struct dir_context *dir);
 static void okfs_kill_superblock(struct super_block* sb);
 static struct dentry* okfs_mount(struct file_system_type *fs_type, int flags, const char* dev_name, void* data);
 static int okfsInit(void);
@@ -18,20 +24,38 @@ static void okfsExit(void);
 
 /*##################### FILE_SYSTEM_STRUCTURES ###################### */
 struct file_system_type okfs_type = {
-	.owner 	 = THIS_MODULE,
-	.name    = "okfs", 
-	.mount   = okfs_mount, 
-	.kill_sb = okfs_kill_superblock,
-	.next	 = NULL,
+	.owner 	  = THIS_MODULE,
+	.name     = "okfs", 
+	.mount    = okfs_mount, 
+	.kill_sb  = okfs_kill_superblock,
+	.fs_flags = okfs_flag,
+	.next	  = NULL,
 };
 
 static const struct file_operations okfs_dir_operations = {
-	
+	.owner   = THIS_MODULE,
+	.iterate = okfs_iterate,
 };
 
 static struct inode_operations okfs_inode_ops = {
-	
+	.lookup = okfs_lookup,	
 };
+
+/* #################### OKFS_LOOKUP ####################### */
+
+struct dentry* okfs_lookup(struct inode* parent_inode, struct dentry* child_dentry, unsigned int flags) 
+{
+	//not added : Should create an in-core inode corresponding to required dentry, associate it with child_dentry and return the dentry.
+	return NULL;
+}
+
+/* #################### OKFS_ITERATE ####################### */
+static int okfs_iterate(struct file *filp, struct dir_context *dir)
+{
+	//Not added : New method to retrieve directory contents
+	return 0;
+}
+
 /* #################### OKFS_KILL_SUPERBLOCK ####################### */
 static void okfs_kill_superblock(struct super_block* sb)
 {

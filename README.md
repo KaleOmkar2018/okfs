@@ -31,3 +31,20 @@ Kernel Version : 4.13.0.37	<br />
 -Command: dd bs=4096 count=64 if=/dev/zero of=myBlkDev <br />
 -The application takes one parameter i.e. the name of the file to be filled with data.Assume application output file name is a.out. <br />
 -./a.out myBlkDev <br />
+
+5.Tested mount filesystem callback function.<br />
+-Added lookup callback which will be used to create in-core inodes and association with the dentry.<br />
+-Added iterate callback which will be used to iterate over directory contents using dir_context.<br />
+-Tested cd. Now we can enter mount director or we can access our filesystem stored on our device<br />
+-Tested ls but it does not work but it does not give any errors.<br />
+-Basic code is implemented and it works.<br />
+-mount directory is created inside the directory where module is present and filDevice.out is the user space applicaction executable.<br />
+-Commands:<br />
+ Create a file with 64 blocks, each of size 4096 bytes: dd bs=4096 count=64 if=/dev/zero of=myBlkDev<br />
+ Fill our Device wiht filesystem info using the file used for our loop device:./fillDevice.out myBlkDev<br />
+ Insert Module: insmod okfs.ko <br />
+ Mount filesystem of filesystem type okfs on a loop device which stores the content from myBlkDev.<br />
+  -mount -o loop -t okfs myBlkDev /home/hp/Desktop/okfs/mount/<br />
+ Check messages using dmesg<br />
+ Unmount Device : umount mount/<br />
+ Remove Module: rmmod okfs.ko<br />

@@ -28,6 +28,12 @@ enum INODE_NUMBERS{
 	OKFS_MAX_INODES = OKFS_DEFAULT_FILLED_BLOCKS - OKFS_MAX_BLOCKS, //61
 };
 
+//Directory record for finding relationship between inode and filename.
+struct okfs_dir_record{
+	char filename[OKFS_FILENAME_MAXLEN];
+	unsigned long inode_no;	
+};
+
 //inode store structure
 typedef union okfs_inodeStore_datablock{
 //Use it as an inode
