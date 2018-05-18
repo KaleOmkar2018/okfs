@@ -14,8 +14,8 @@
 static int okfs_superfill_callback(struct super_block* sb, void* data, int silent);
 static okfs_inode_store* okfs_get_root_dir_inode(struct super_block* sb, unsigned long inode_no);
 
-/*##################### DRIVER OPERTAIONS ########################## */
-static struct dentry* okfs_lookup(struct inode* parent_inode, struct dentry* child_dentry, unsigned int flags);
+/*### DRIVER OPERTAIONS ###*/
+struct dentry* okfs_lookup(struct inode* parent_inode, struct dentry* child_dentry, unsigned int flags);
 static int okfs_iterate(struct file *filp, struct dir_context *dir);
 static void okfs_kill_superblock(struct super_block* sb);
 static struct dentry* okfs_mount(struct file_system_type *fs_type, int flags, const char* dev_name, void* data);
@@ -37,22 +37,149 @@ static const struct file_operations okfs_dir_operations = {
 	.iterate = okfs_iterate,
 };
 
+static const struct file_operations okfs_file_operations = {
+	.owner = THIS_MODULE,
+};
+
 static struct inode_operations okfs_inode_ops = {
 	.lookup = okfs_lookup,	
 };
 
 /* #################### OKFS_LOOKUP ####################### */
-
 struct dentry* okfs_lookup(struct inode* parent_inode, struct dentry* child_dentry, unsigned int flags) 
 {
-	//not added : Should create an in-core inode corresponding to required dentry, associate it with child_dentry and return the dentry.
+	int i;
+	struct buffer_head* bh;
+	struct okfs_dir_record* record;
+	static int done = 0; 
+	
+	okfs_inode_store* parent = parent_inode->i_private; //Pointer to the okfs_inode structure of the parent directory inode
+	struct super_block* sb = parent_inode->i_sb; 		//This the VFS superblock structure
+	
+	//Check whether lookup is called only once for a child dentry
+	if(done)
+	{
+		done = 0;
+		return NULL;
+	}
+	
+	//Check if parent inode is not NULL
+	if(!parent)
+	{
+		printk(KERN_ALERT "Parent Inode NULL\n");
+		return NULL;
+	}
+	
+	//Each directory inode will store information about the files or directories in its data block.
+	//Copy the entire buffer_head required for data of data block of parent_inode from disk.
+	bh = sb_bread(sb, parent->data_block_number);
+	if(!bh)
+	{
+		printk(KERN_ALERT "Cannot obtain data from disk\n");
+		return NULL;
+	}
+	
+	//Each data block for a file will store direcotry records : filename + inode
+	record = (struct okfs_dir_record*)bh->b_data;
+	for(i = 0; i < parent->dir_children_count; i++)
+	{
+		//We will get a negative dentry, we have a filename but we do not have an inode attached to the dentry.
+		//Compare the filename and create an in-core inode and add the dentry.
+		if(!strcmp(record->filename, child_dentry->d_name.name))
+		{
+			printk(KERN_ALERT "Match Found\n");
+			struct inode* inode;
+			okfs_inode_store* okfs_inode;
+
+			//Assuming that a new inode will be present inside the root directory, we will get the inode number for that file.
+			okfs_inode = okfs_get_root_dir_inode(sb, record->inode_no);
+			if(!okfs_inode)
+			{
+				printk(KERN_ALERT "Record for requested inode not present\n");
+				return NULL;
+			}
+			//Create an in-core inode and initialize it.
+			inode = new_inode(sb);
+			inode->i_ino = okfs_inode->inode_no;
+			//Sets the parent directory as the ownwer and the mode depending upon whether it is a file or directory.
+			inode_init_owner(inode, parent_inode, okfs_inode->mode);
+			inode->i_sb = sb;
+			//While accessing this inode, use the operations mentioned in below structure.
+			inode->i_op = &okfs_inode_ops;
+			
+			//Check whether it is a file or directory to assign file or directory operations.
+			if(S_ISDIR(inode->i_mode))
+			{
+				inode->i_fop = &okfs_dir_operations;
+				printk(KERN_ALERT "Directory Operations\n");
+			}
+			else if(S_ISREG(inode->i_mode))
+			{
+				inode->i_fop = &okfs_file_operations;
+				printk(KERN_ALERT "File Operations\n");
+			}
+			else
+			{
+				printk(KERN_ALERT "Mode Not Supported\n");
+				return NULL;
+			}
+			
+			inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
+			//Store the filesystem structure so that it is easily accessible.
+			inode->i_private = okfs_inode;
+			//Now that we have an initialized inode, make a pair.
+			d_add(child_dentry, inode);
+			done = 1;
+			return child_dentry;
+		}
+		record++;
+	}	
+	brelse(bh);
 	return NULL;
 }
 
 /* #################### OKFS_ITERATE ####################### */
 static int okfs_iterate(struct file *filp, struct dir_context *dir)
 {
-	//Not added : New method to retrieve directory contents
+	int i;
+	struct buffer_head* bh;
+	okfs_inode_store* okfs_dir_inode;
+	struct okfs_dir_record* record;
+	struct inode* inode = filp->f_inode; //Take the directory inode
+	struct super_block* sb = inode->i_sb;//And the superblock
+	
+	//Once directory is iterated, position will be updated as the kernel will know about the directory layout.	
+	if(dir->pos > 0)
+	{
+		printk(KERN_ALERT "Directory Contents Read\n");
+		return 0; //return 0 as contents have already been read and it is not an error.
+	}
+	
+	okfs_dir_inode = (okfs_inode_store*)inode->i_private;
+	if(!okfs_dir_inode)
+	{
+		printk(KERN_ALERT "Inode is Null\n");
+		return -1;//Return value not checked
+	}
+	if(!S_ISDIR(okfs_dir_inode->mode))
+	{
+		printk(KERN_ALERT "Inode is not a directory\n");
+		return -1; //Return Value Not Checked
+	}
+	
+	bh = sb_bread(sb, okfs_dir_inode->data_block_number);
+	record = (struct okfs_dir_record*)bh->b_data;
+	
+	//Iterate over directory children and let the kernel know about the directory layout.
+	for(i = 0; i < okfs_dir_inode->dir_children_count; i++)
+	{
+		dir_emit(dir, record->filename, OKFS_FILENAME_MAXLEN, record->inode_no, DT_UNKNOWN);
+		dir->pos += sizeof(record);
+		record++;
+	}
+	
+	//Release the buffer
+	brelse(bh);
 	return 0;
 }
 

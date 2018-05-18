@@ -48,3 +48,7 @@ Kernel Version : 4.13.0.37	<br />
  Check messages using dmesg<br />
  Unmount Device : umount mount/<br />
  Remove Module: rmmod okfs.ko<br />
+
+6.Added lookup and iterate functions.<br />
+Module can be compiled but not tested yet<br />
+New file these functions will be tested in the next push<br />
